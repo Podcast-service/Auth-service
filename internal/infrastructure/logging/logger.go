@@ -6,9 +6,9 @@ import (
 	"os"
 )
 
-const (
-	loggerKey = "logger"
-)
+type loggerKeyType struct{}
+
+var loggerKey = loggerKeyType{}
 
 func Init() *slog.Logger {
 	logHandler := slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{

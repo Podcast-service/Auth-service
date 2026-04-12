@@ -13,7 +13,10 @@ import (
 type contextKey string
 
 const (
-	ClaimKey contextKey = "claims"
+	ClaimKey             contextKey = "claims"
+	authHeaderPartsCount int        = 2
+	authSchemeIndex      int        = 0
+	authTokenIndex       int        = 1
 )
 
 func AuthMiddleware(manager *access.Manager) func(http.Handler) http.Handler {
@@ -48,12 +51,12 @@ func extractTokenFromRequest(r *http.Request) (string, error) {
 		return "", tokens.ErrTokenMissing
 	}
 
-	parts := strings.SplitN(authHeader, " ", 2)
-	if len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") {
+	parts := strings.SplitN(authHeader, " ", authHeaderPartsCount)
+	if len(parts) != authHeaderPartsCount || !strings.EqualFold(parts[authSchemeIndex], "Bearer") {
 		return "", tokens.ErrTokenInvalid
 	}
 
-	tokenString := parts[1]
+	tokenString := parts[authTokenIndex]
 	if tokenString == "" {
 		return "", tokens.ErrTokenMissing
 	}

@@ -50,7 +50,7 @@ func LoadConfig() (Config, error) {
 		return Config{}, err
 	}
 
-	dbConfig := DatabaseConfig{}
+	var dbConfig DatabaseConfig
 	dbConfig, err = LoadDBConfig()
 	if err != nil {
 		return Config{}, err

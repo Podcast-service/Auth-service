@@ -8,8 +8,13 @@ import (
 	"math/big"
 )
 
+const (
+	tokenLength = 32
+	baseOfCode  = 1_000_000
+)
+
 func GenerateToken() (raw string, hash string, err error) {
-	b := make([]byte, 32)
+	b := make([]byte, tokenLength)
 	_, err = rand.Read(b)
 	if err != nil {
 		return "", "", fmt.Errorf("generate refresh token: %w", err)
@@ -20,7 +25,7 @@ func GenerateToken() (raw string, hash string, err error) {
 }
 
 func GenerateCode() (string, error) {
-	n, err := rand.Int(rand.Reader, big.NewInt(1_000_000))
+	n, err := rand.Int(rand.Reader, big.NewInt(baseOfCode))
 	if err != nil {
 		return "", fmt.Errorf("generate code: %w", err)
 	}

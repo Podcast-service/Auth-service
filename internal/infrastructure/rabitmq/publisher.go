@@ -35,7 +35,7 @@ func NewPublisher(ampqURL string) (*Publisher, error) {
 				slog.String("error", conErr.Error()),
 			)
 		}
-		return nil, fmt.Errorf("create RabbitMQ channel: %s", err)
+		return nil, fmt.Errorf("create RabbitMQ channel: %w", err)
 	}
 
 	_, err = channel.QueueDeclare(
@@ -59,7 +59,7 @@ func NewPublisher(ampqURL string) (*Publisher, error) {
 				slog.String("error", conErr.Error()),
 			)
 		}
-		return nil, fmt.Errorf("declare RabbitMQ queue: %s", err)
+		return nil, fmt.Errorf("declare RabbitMQ queue: %w", err)
 	}
 
 	return &Publisher{
@@ -77,7 +77,7 @@ func (p *Publisher) SendMessage(ctx context.Context, message any) error {
 			slog.Any("message", message),
 			slog.String("error", err.Error()),
 		)
-		return fmt.Errorf("marshal message: %s", err)
+		return fmt.Errorf("marshal message: %w", err)
 	}
 	err = p.channel.PublishWithContext(ctx,
 		"", // exchange - пустая строка означает default exchange
@@ -95,7 +95,7 @@ func (p *Publisher) SendMessage(ctx context.Context, message any) error {
 			slog.String("body", string(body)),
 			slog.String("error", err.Error()),
 		)
-		return fmt.Errorf("publish message: %s", err)
+		return fmt.Errorf("publish message: %w", err)
 	}
 	slog.Info("message published to rabbitmq",
 		slog.String("queue", QueueName),
@@ -110,14 +110,14 @@ func (p *Publisher) Close() error {
 		slog.Error("close RabbitMQ channel",
 			slog.String("error", err.Error()),
 		)
-		return fmt.Errorf("close RabbitMQ channel: %s", err)
+		return fmt.Errorf("close RabbitMQ channel: %w", err)
 	}
 	err = p.conn.Close()
 	if err != nil {
 		slog.Error("close RabbitMQ connection",
 			slog.String("error", err.Error()),
 		)
-		return fmt.Errorf("close RabbitMQ connection: %s", err)
+		return fmt.Errorf("close RabbitMQ connection: %w", err)
 	}
 	return nil
 }

@@ -17,6 +17,10 @@ type AuthHandler struct {
 	svc services.AuthServices
 }
 
+const (
+	ipHeaderPartsCount int = 2
+)
+
 func NewAuthHandler(svc services.AuthServices) *AuthHandler {
 	return &AuthHandler{svc: svc}
 }
@@ -117,7 +121,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	userAgent := r.Header.Get("User-Agent")
 
 	if forwarded := r.Header.Get("X-Forwarded-For"); forwarded != "" {
-		parts := strings.SplitN(forwarded, ",", 2)
+		parts := strings.SplitN(forwarded, ",", ipHeaderPartsCount)
 		ipAddress = strings.TrimSpace(parts[0])
 	}
 

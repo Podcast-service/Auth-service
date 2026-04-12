@@ -188,5 +188,8 @@ func (r *ORMRepository) GetUserDevices(ctx context.Context, userID uuid.UUID) ([
 		devices = append(devices, device)
 	}
 
-	return devices, rows.Err()
+	if rows.Err() != nil {
+		return devices, fmt.Errorf("get user devices: %w", rows.Err())
+	}
+	return devices, nil
 }

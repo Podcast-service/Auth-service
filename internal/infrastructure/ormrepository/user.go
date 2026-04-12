@@ -46,5 +46,9 @@ func (r *ORMRepository) GetUserRoles(ctx context.Context, userID uuid.UUID) ([]s
 		}
 		roles = append(roles, name)
 	}
-	return roles, rows.Err()
+
+	if rows.Err() != nil {
+		return nil, fmt.Errorf("get user roles: %w", rows.Err())
+	}
+	return roles, nil
 }

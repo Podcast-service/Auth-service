@@ -22,7 +22,6 @@ func NewPool(ctx context.Context, cfg config.Config) (*pgxpool.Pool, error) {
 	log.Info("Connecting to PostgreSQL database...")
 
 	sourceMigrationURL := "file:///app/migrations"
-	//sourceMigrationURL := "file://migrations"
 	dsn := fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=%s",
 		cfg.Database.User,
 		cfg.Database.Password, cfg.Database.Host,

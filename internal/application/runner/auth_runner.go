@@ -38,34 +38,50 @@ func Run() error {
 
 	cfg, err := config.LoadConfig()
 	if err != nil {
-		return err
+		return fmt.Errorf("load config: %w", err)
 	}
 
 	var pool *pgxpool.Pool
-	pool, err = postgres.NewPool(ctx, cfg)
+	pool, err = initPostgres(ctx, cfg)
 	if err != nil {
 		return err
 	}
-
 	defer pool.Close()
 
-	repo := ormrepository.NewORMRepository(pool)
-
 	var sender *rabitmq.Publisher
-	sender, err = rabitmq.NewPublisher(cfg.RabbitMQBaseURL)
+	sender, err = initRabbitMQ(cfg)
 	if err != nil {
-
-		fmt.Println("Failed to connect to RabbitMQ:", err, "URL:", cfg.RabbitMQBaseURL)
 		return err
 	}
 	defer func() {
-		closeErr := sender.Close()
-		if closeErr != nil {
-			log.Error("close RabbitMQ publisher",
-				slog.String("error", closeErr.Error()),
-			)
+		if closeErr := sender.Close(); closeErr != nil {
+			log.Error("close RabbitMQ publisher", slog.String("error", closeErr.Error()))
 		}
 	}()
+
+	router := buildRouter(pool, sender, cfg)
+
+	return runHTTPServer(ctx, log, router)
+}
+
+func initPostgres(ctx context.Context, cfg config.Config) (*pgxpool.Pool, error) {
+	pool, err := postgres.NewPool(ctx, cfg)
+	if err != nil {
+		return nil, fmt.Errorf("create postgres pool: %w", err)
+	}
+	return pool, nil
+}
+
+func initRabbitMQ(cfg config.Config) (*rabitmq.Publisher, error) {
+	sender, err := rabitmq.NewPublisher(cfg.RabbitMQBaseURL)
+	if err != nil {
+		return nil, fmt.Errorf("create rabbitmq publisher: %w", err)
+	}
+	return sender, nil
+}
+
+func buildRouter(pool *pgxpool.Pool, sender *rabitmq.Publisher, cfg config.Config) http.Handler {
+	repo := ormrepository.NewORMRepository(pool)
 	jwtManager := access.NewManager(cfg.AccessTokenSecret, AccessTokenTTL)
 
 	authService := services.NewAuthService(repo, repo, repo, sender, jwtManager, RefreshTokenTTL)
@@ -76,39 +92,39 @@ func Run() error {
 	sessionHandler := httphandler.NewSessionHandler(sessionService)
 	userHandler := httphandler.NewUserHandler(userService)
 
-	router := route.RegisterRoutes(authHandler, sessionHandler, userHandler, jwtManager)
+	return route.RegisterRoutes(authHandler, sessionHandler, userHandler, jwtManager)
+}
 
-	httpServer := &http.Server{
+func runHTTPServer(ctx context.Context, log *slog.Logger, handler http.Handler) error {
+	srv := &http.Server{
 		Addr:    ":8080",
-		Handler: router,
+		Handler: handler,
 	}
 
 	go func() {
-		log.Info("HTTP server starting", "addr", httpServer.Addr)
-		srvErr := httpServer.ListenAndServe()
-		if srvErr != nil && !errors.Is(srvErr, http.ErrServerClosed) {
-			log.Error(
-				"HTTP server failed",
-				slog.String("error", srvErr.Error()),
+		log.Info("HTTP server starting", slog.String("addr", srv.Addr))
+		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			log.Error("HTTP server failed",
+				slog.String("error", err.Error()),
 			)
 		}
 	}()
 
 	<-ctx.Done()
 	log.Info("shutting down HTTP server",
-		slog.String("addr", httpServer.Addr),
+		slog.String("addr", srv.Addr),
 	)
+
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
 	defer cancel()
-	err = httpServer.Shutdown(shutdownCtx)
-	if err != nil {
-		log.Error(
-			"failed to shutdown HTTP server",
+
+	if err := srv.Shutdown(shutdownCtx); err != nil {
+		log.Error("failed to shutdown HTTP server",
 			slog.String("error", err.Error()),
-			slog.String("addr", httpServer.Addr),
 		)
-		return fmt.Errorf("failed to shutdown HTTP server: %w", err)
+		return fmt.Errorf("shutdown http server: %w", err)
 	}
+
 	log.Info("HTTP server stopped")
 	return nil
 }
