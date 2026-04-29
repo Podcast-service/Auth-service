@@ -73,49 +73,49 @@ func LoadConfig() (Config, error) {
 }
 
 func LoadDBConfig() (DatabaseConfig, error) {
-	dbHost := os.Getenv("DB_HOST")
+	dbHost := os.Getenv("AUTH_DB_HOST")
 	if dbHost == "" {
-		err := errors.New("DB_HOST is required")
+		err := errors.New("AUTH_DB_HOST is required")
 		slog.Error("DB_HOST environment variable not set",
 			slog.String("error", err.Error()),
 		)
 		return DatabaseConfig{}, err
 	}
-	dbPort := os.Getenv("DB_PORT")
+	dbPort := os.Getenv("AUTH_DB_PORT")
 	if dbPort == "" {
-		err := errors.New("DB_PORT is required")
+		err := errors.New("AUTH_DB_PORT is required")
 		slog.Error("DB_PORT environment variable not set",
 			slog.String("error", err.Error()),
 		)
 		return DatabaseConfig{}, err
 	}
-	dbUser := os.Getenv("POSTGRES_USER")
+	dbUser := os.Getenv("AUTH_DB_USER")
 	if dbUser == "" {
-		err := errors.New("POSTGRES_USER is required")
-		slog.Error("POSTGRES_USER environment variable not set",
+		err := errors.New("AUTH_DB_USER is required")
+		slog.Error("AUTH_DB_USER environment variable not set",
 			slog.String("error", err.Error()),
 		)
 		return DatabaseConfig{}, err
 	}
-	dbPassword := os.Getenv("POSTGRES_PASSWORD")
+	dbPassword := os.Getenv("AUTH_DB_PASSWORD")
 	if dbPassword == "" {
-		err := errors.New("POSTGRES_PASSWORD is required")
-		slog.Error("POSTGRES_PASSWORD environment variable not set",
+		err := errors.New("AUTH_DB_PASSWORD is required")
+		slog.Error("AUTH_DB_PASSWORD environment variable not set",
 			slog.String("error", err.Error()),
 		)
 		return DatabaseConfig{}, err
 	}
-	dbName := os.Getenv("POSTGRES_DB")
+	dbName := os.Getenv("AUTH_DB_NAME")
 	if dbName == "" {
-		err := errors.New("POSTGRES_DB is required")
-		slog.Error("POSTGRES_DB environment variable not set",
+		err := errors.New("AUTH_DB_NAME is required")
+		slog.Error("AUTH_DB_NAME environment variable not set",
 			slog.String("error", err.Error()),
 		)
 		return DatabaseConfig{}, err
 	}
-	dbSSLMode := os.Getenv("DB_SSLMODE")
+	dbSSLMode := os.Getenv("AUTH_DB_SSLMODE")
 	if dbSSLMode == "" {
-		slog.Warn("DB_SSLMODE environment variable not set, defaulting to 'disable'")
+		slog.Warn("AUTH_DB_SSLMODE environment variable not set, defaulting to 'disable'")
 		dbSSLMode = "disable"
 	}
 	return DatabaseConfig{
