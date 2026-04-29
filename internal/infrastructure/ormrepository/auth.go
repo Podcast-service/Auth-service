@@ -62,14 +62,14 @@ func (r *ORMRepository) ConfirmEmail(ctx context.Context, token domain.EmailVeri
 		}
 	}()
 
-	err = r.verifyEmail(ctx, tx, token.UserID)
-	if err != nil {
-		return fmt.Errorf("verify email: %w", err)
-	}
-
 	err = r.markEmailVerifyTokenUsed(ctx, tx, token.ID)
 	if err != nil {
 		return fmt.Errorf("mark email verify token used: %w", err)
+	}
+
+	err = r.verifyEmail(ctx, tx, token.UserID)
+	if err != nil {
+		return fmt.Errorf("verify email: %w", err)
 	}
 
 	err = tx.Commit(ctx)
@@ -91,14 +91,14 @@ func (r *ORMRepository) ResetPassword(ctx context.Context, token domain.Password
 		}
 	}()
 
-	err = r.updatePasswordHash(ctx, tx, token.UserID, newPasswordHash)
-	if err != nil {
-		return fmt.Errorf("update password hash: %w", err)
-	}
-
 	err = r.markPasswordResetTokenUsed(ctx, tx, token.ID)
 	if err != nil {
 		return fmt.Errorf("mark password reset token used: %w", err)
+	}
+
+	err = r.updatePasswordHash(ctx, tx, token.UserID, newPasswordHash)
+	if err != nil {
+		return fmt.Errorf("update password hash: %w", err)
 	}
 
 	err = tx.Commit(ctx)

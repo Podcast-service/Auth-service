@@ -4,14 +4,17 @@ import (
 	"errors"
 	"log/slog"
 	"os"
+	"strings"
 
 	"github.com/joho/godotenv"
 )
 
 type Config struct {
-	AccessTokenSecret string
-	RabbitMQBaseURL   string
-	Database          DatabaseConfig
+	AccessTokenSecret      string
+	RabbitMQBaseURL        string
+	KafkaBrokers           []string
+	KafkaTopicUserRegister string
+	Database               DatabaseConfig
 }
 
 type DatabaseConfig struct {
@@ -50,6 +53,12 @@ func LoadConfig() (Config, error) {
 		return Config{}, err
 	}
 
+	kafkaBrokersRaw := os.Getenv("KAFKA_BROKERS")
+	if kafkaBrokersRaw == "" {
+		return Config{}, errors.New("KAFKA_BROKERS environment variable is required")
+	}
+	kafkaBrokers := strings.Split(kafkaBrokersRaw, ",")
+
 	var dbConfig DatabaseConfig
 	dbConfig, err = LoadDBConfig()
 	if err != nil {
@@ -58,6 +67,7 @@ func LoadConfig() (Config, error) {
 	return Config{
 		AccessTokenSecret: accessTokenSecret,
 		RabbitMQBaseURL:   rabbitMQBaseURL,
+		KafkaBrokers:      kafkaBrokers,
 		Database:          dbConfig,
 	}, nil
 }
@@ -81,8 +91,8 @@ func LoadDBConfig() (DatabaseConfig, error) {
 	}
 	dbUser := os.Getenv("POSTGRES_USER")
 	if dbUser == "" {
-		err := errors.New("POSTGRES_PASSWORD is required")
-		slog.Error("POSTGRES_PASSWORD environment variable not set",
+		err := errors.New("POSTGRES_USER is required")
+		slog.Error("POSTGRES_USER environment variable not set",
 			slog.String("error", err.Error()),
 		)
 		return DatabaseConfig{}, err

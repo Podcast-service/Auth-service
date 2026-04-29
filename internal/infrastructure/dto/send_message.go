@@ -11,3 +11,8 @@ type PasswordResetMessage struct {
 	Email     string `json:"email"`
 	ResetCode string `json:"reset_code"`
 }
+
+type UserRegisteredMessage struct {
+	UserID   string `json:"user_id"`
+	Username string `json:"username"`
+}

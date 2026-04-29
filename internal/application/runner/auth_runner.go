@@ -16,6 +16,7 @@ import (
 	"github.com/Podcast-service/Auth-service/internal/infrastructure/config"
 	"github.com/Podcast-service/Auth-service/internal/infrastructure/httppkg/httphandler"
 	"github.com/Podcast-service/Auth-service/internal/infrastructure/httppkg/route"
+	"github.com/Podcast-service/Auth-service/internal/infrastructure/kafkapkg"
 	"github.com/Podcast-service/Auth-service/internal/infrastructure/logging"
 	"github.com/Podcast-service/Auth-service/internal/infrastructure/ormrepository"
 	"github.com/Podcast-service/Auth-service/internal/infrastructure/postgres"
@@ -24,9 +25,10 @@ import (
 )
 
 const (
-	RefreshTokenTTL = time.Hour * 24 * 30
-	AccessTokenTTL  = time.Minute * 30 // не очень определился, где это нужно хранить
-	shutdownTimeout = 5 * time.Second
+	RefreshTokenTTL      = time.Hour * 24 * 30
+	AccessTokenTTL       = time.Minute * 30 // не очень определился, где это нужно хранить
+	shutdownTimeout      = 5 * time.Second
+	cleanupExpiredTokens = 24 * time.Hour
 )
 
 func Run() error {
@@ -48,18 +50,35 @@ func Run() error {
 	}
 	defer pool.Close()
 
-	var sender *rabitmq.Publisher
-	sender, err = initRabbitMQ(cfg)
+	var rabbitPublisher *rabitmq.Publisher
+	rabbitPublisher, err = initRabbitMQ(cfg)
 	if err != nil {
 		return err
 	}
 	defer func() {
-		if closeErr := sender.Close(); closeErr != nil {
-			log.Error("close RabbitMQ publisher", slog.String("error", closeErr.Error()))
+		rbmErr := rabbitPublisher.Close()
+		if rbmErr != nil {
+			log.Error("close RabbitMQ publisher",
+				slog.String("error", rbmErr.Error()),
+			)
 		}
 	}()
 
-	router := buildRouter(pool, sender, cfg)
+	kafkaProducer := initKafka(cfg)
+	defer func() {
+		kfkErr := kafkaProducer.Close()
+		if kfkErr != nil {
+			log.Error("close kafka producer",
+				slog.String("error", kfkErr.Error()),
+			)
+		}
+	}()
+
+	repo := ormrepository.NewORMRepository(pool)
+
+	startTokenCleanup(ctx, log, repo)
+
+	router := buildRouter(repo, rabbitPublisher, kafkaProducer, cfg)
 
 	return runHTTPServer(ctx, log, router)
 }
@@ -80,11 +99,20 @@ func initRabbitMQ(cfg config.Config) (*rabitmq.Publisher, error) {
 	return sender, nil
 }
 
-func buildRouter(pool *pgxpool.Pool, sender *rabitmq.Publisher, cfg config.Config) http.Handler {
-	repo := ormrepository.NewORMRepository(pool)
+func initKafka(cfg config.Config) *kafkapkg.Producer {
+	kafkaProducer := kafkapkg.NewProducer(cfg.KafkaBrokers)
+	return kafkaProducer
+}
+
+func buildRouter(
+	repo *ormrepository.ORMRepository,
+	rabbitPublisher *rabitmq.Publisher,
+	kafkaProducer *kafkapkg.Producer,
+	cfg config.Config,
+) http.Handler {
 	jwtManager := access.NewManager(cfg.AccessTokenSecret, AccessTokenTTL)
 
-	authService := services.NewAuthService(repo, repo, repo, sender, jwtManager, RefreshTokenTTL)
+	authService := services.NewAuthService(repo, repo, repo, rabbitPublisher, kafkaProducer, jwtManager, RefreshTokenTTL)
 	sessionService := services.NewSessionService(repo)
 	userService := services.NewUserService(repo, jwtManager)
 
@@ -127,4 +155,25 @@ func runHTTPServer(ctx context.Context, log *slog.Logger, handler http.Handler) 
 
 	log.Info("HTTP server stopped")
 	return nil
+}
+
+func startTokenCleanup(ctx context.Context, log *slog.Logger, repo *ormrepository.ORMRepository) {
+	go func() {
+		ticker := time.NewTicker(cleanupExpiredTokens)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				if err := repo.DeleteExpiredTokens(context.Background()); err != nil {
+					log.Error("failed to delete expired tokens",
+						slog.String("error", err.Error()),
+					)
+				} else {
+					log.Info("expired tokens cleanup completed")
+				}
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
 }

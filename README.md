@@ -23,6 +23,15 @@ curl http://localhost:8080/auth/me/roles
 
 ---
 
+## UI для мониторинга
+
+| Сервис | URL | Логин / Пароль |
+|---|---|---|
+| RabbitMQ Management | http://localhost:15672 | user / password |
+| Kafka UI | http://localhost:8090 | — |
+ 
+---
+
 ## API
 
 Базовый URL: `http://localhost:8080`
@@ -33,7 +42,7 @@ curl http://localhost:8080/auth/me/roles
 |---|---|---|
 | `POST` | `/auth/register` | Регистрация |
 | `POST` | `/auth/verify-email` | Верификация email |
-| `POST` | `/auth/resend-verification` | Повторная отправка кода |
+| `POST` | `/auth/resend-verification` | Повторная отправка кода верификации |
 | `POST` | `/auth/login` | Вход |
 | `POST` | `/auth/refresh` | Обновление токенов |
 | `POST` | `/auth/password-reset/request` | Запрос сброса пароля |
@@ -48,7 +57,7 @@ curl http://localhost:8080/auth/me/roles
 | `GET` | `/auth/devices` | Список активных устройств |
 | `GET` | `/auth/me/roles` | Роли текущего пользователя |
 | `POST` | `/auth/me/update-roles` | Добавить роль пользователю |
-
+ 
 ---
 
 ## Примеры взаимодействия
@@ -58,10 +67,7 @@ curl http://localhost:8080/auth/me/roles
 ```bash
 curl -X POST http://localhost:8080/auth/register \
   -H "Content-Type: application/json" \
-  -d '{
-    "email": "user@example.com",
-    "password": "secret123",
-  }'
+  -d '{"email":"user@example.com","password":"secret123","username":"testuser"}'
 ```
 
 **Ответ `201`:**
@@ -72,47 +78,37 @@ curl -X POST http://localhost:8080/auth/register \
 }
 ```
 
-После регистрации в RabbitMQ (очередь `email.queue`) появится сообщение:
+После регистрации происходит два события:
+
+**RabbitMQ** — в очереди `email.queue` появится код верификации.
+Открой http://localhost:15672 → Queues → email.queue → Get messages:
 ```json
 {
   "type": "EMAIL_VERIFY",
   "email": "user@example.com",
-  "verify_code": "$ RANDOM_CODE(посмотреть в логах контейнера auth-service)"
+  "verify_code": "453177"
 }
 ```
 
----
-
-### Верификация email
-
-```bash
-curl -X POST http://localhost:8080/auth/verify-email \
-  -H "Content-Type: application/json" \
-  -d '{
-    "email": "user@example.com",
-    "code": "$VERIFY_CODE"
-  }'
-```
-
-**Ответ `200`:**
+**Kafka** — в топике `podcast.user.register` появится событие.
+Открой http://localhost:8090 → Topics → podcast.user.register → Messages:
 ```json
 {
-  "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "refresh_token": "d7f3a1b2c4e5...",
-  "expires_in": 1800
+  "user_id": "550e8400-e29b-41d4-a716-446655440000",
+  "username": "testuser"
 }
 ```
 
 ---
 
-### Повторная отправка кода верификации
+### Повторная отправка кода верификации (если код не пришёл или истёк)
+
+Если код не получен или уже истёк — запроси новый. Старые коды при этом инвалидируются (хранятся только 3 последних):
 
 ```bash
 curl -X POST http://localhost:8080/auth/resend-verification \
   -H "Content-Type: application/json" \
-  -d '{
-    "email": "user@example.com"
-  }'
+  -d '{"email":"user@example.com"}'
 ```
 
 **Ответ `200`:**
@@ -122,18 +118,36 @@ curl -X POST http://localhost:8080/auth/resend-verification \
 }
 ```
 
+В RabbitMQ появится новое сообщение с новым кодом.
+
+### Верификация email
+
+Возьми актуальный код из RabbitMQ и подставь в запрос:
+
+```bash
+curl -X POST http://localhost:8080/auth/verify-email \
+  -H "Content-Type: application/json" \
+  -d '{"email":"user@example.com","code":"<$VERIFY_CODE>"}'
+```
+
+**Ответ `200`** — после верификации сразу выдаются токены для автологина:
+```json
+{
+  "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "refresh_token": "d7f3a1b2c4e5...",
+  "expires_in": 1800
+}
+```
+
 ---
 
 ### Вход
 
 ```bash
+```bash
 curl -X POST http://localhost:8080/auth/login \
   -H "Content-Type: application/json" \
-  -d '{
-    "email": "user@example.com",
-    "password": "secret123",
-    "device_name": "My Laptop"
-  }'
+  -d '{"email":"user@example.com","password":"secret123","device_name":"My Laptop"}'
 ```
 
 **Ответ `200`:**
@@ -145,7 +159,13 @@ curl -X POST http://localhost:8080/auth/login \
 }
 ```
 
-**Если email не подтверждён — `403`:**
+Сохрани токены для следующих шагов:
+```bash
+ACCESS_TOKEN="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+REFRESH_TOKEN="d7f3a1b2c4e5..."
+```
+
+**Если email не подтверждён код высылается автоматически — `403`:**
 ```json
 {
   "error": "email_not_verified",
@@ -160,16 +180,14 @@ curl -X POST http://localhost:8080/auth/login \
 ```bash
 curl -X POST http://localhost:8080/auth/refresh \
   -H "Content-Type: application/json" \
-  -d '{
-    "refresh_token": "$REFRESH_TOKEN"
-  }'
+  -d "{\"refresh_token\":\"$REFRESH_TOKEN\"}"
 ```
 
-**Ответ `200`:**
+**Ответ `200`** — старый refresh_token инвалидируется, выдаётся новая пара:
 ```json
 {
   "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "refresh_token": "a1b2c3d4e5f6...",
+  "refresh_token": "f6e5d4c3b2a1...",
   "expires_in": 1800
 }
 ```
@@ -180,7 +198,7 @@ curl -X POST http://localhost:8080/auth/refresh \
 
 ```bash
 curl http://localhost:8080/auth/me/roles \
-  -H "Authorization: Bearer <$ ACCESS_TOKEN>"
+  -H "Authorization: Bearer $ACCESS_TOKEN"
 ```
 
 **Ответ `200`:**
@@ -196,18 +214,29 @@ curl http://localhost:8080/auth/me/roles \
 
 ```bash
 curl -X POST http://localhost:8080/auth/me/update-roles \
-  -H "Authorization: Bearer <$ ACCESS_TOKEN>" \
+  -H "Authorization: Bearer $ACCESS_TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{
-    "role_name": "admin"
-  }'
+  -d '{"role_name":"admin"}'
+```
+
+**Ответ `200`** — возвращается новый access_token с обновлёнными ролями:
+```json
+{
+  "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "expires_in": 1800
+}
+```
+
+Проверь что роль добавилась (используй новый токен из ответа):
+```bash
+curl http://localhost:8080/auth/me/roles \
+  -H "Authorization: Bearer <новый_access_token>"
 ```
 
 **Ответ `200`:**
 ```json
 {
-  "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "expires_in": 1800
+  "roles": ["user", "admin"]
 }
 ```
 
@@ -217,7 +246,7 @@ curl -X POST http://localhost:8080/auth/me/update-roles \
 
 ```bash
 curl http://localhost:8080/auth/devices \
-  -H "Authorization: Bearer <$ ACCESS_TOKEN>"
+  -H "Authorization: Bearer $ACCESS_TOKEN"
 ```
 
 **Ответ `200`:**
@@ -225,49 +254,13 @@ curl http://localhost:8080/auth/devices \
 [
   {
     "device_name": "My Laptop",
-    "ip_address": "192.168.1.1",
+    "ip_address": "172.20.0.1",
     "user_agent": "curl/7.88.1",
-    "created_at": "2026-04-12T11:00:00Z",
-    "last_used_at": "2026-04-12T11:30:00Z",
-    "refresh_token_id": "550e8400-e29b-41d4-a716-446655440000"
+    "created_at": "2026-04-29T09:31:00Z",
+    "last_used_at": "2026-04-29T09:31:00Z",
+    "refresh_token_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
   }
 ]
-```
-
----
-
-### Выход с текущего устройства
-
-```bash
-curl -X POST http://localhost:8080/auth/logout \
-  -H "Authorization: Bearer <$ ACCESS_TOKEN>" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "refresh_token": "d7f3a1b2c4e5..."
-  }'
-```
-
-**Ответ `200`:**
-```json
-{
-  "message": "logged out"
-}
-```
-
----
-
-### Выход со всех устройств
-
-```bash
-curl -X POST http://localhost:8080/auth/logout_all \
-  -H "Authorization: Bearer <$ ACCESS_TOKEN>"
-```
-
-**Ответ `200`:**
-```json
-{
-  "message": "logged out from all devices"
-}
 ```
 
 ---
@@ -277,9 +270,7 @@ curl -X POST http://localhost:8080/auth/logout_all \
 ```bash
 curl -X POST http://localhost:8080/auth/password-reset/request \
   -H "Content-Type: application/json" \
-  -d '{
-    "email": "user@example.com"
-  }'
+  -d '{"email":"user@example.com"}'
 ```
 
 **Ответ `200`:**
@@ -305,11 +296,7 @@ curl -X POST http://localhost:8080/auth/password-reset/request \
 ```bash
 curl -X POST http://localhost:8080/auth/password-reset/confirm \
   -H "Content-Type: application/json" \
-  -d '{
-    "email": "user@example.com",
-    "code": "<$VERIFY_CODE>",
-    "new_password": "newSecret456"
-  }'
+  -d '{"email":"user@example.com","code":"<$RESET_CODE>","new_password":"newSecret456"}'
 ```
 
 **Ответ `200`:**
@@ -321,9 +308,51 @@ curl -X POST http://localhost:8080/auth/password-reset/confirm \
 
 ---
 
-## Сообщения RabbitMQ
+### Выход с текущего устройства
 
-Сервис публикует сообщения в очередь **`email.queue`**.
+```bash
+curl -X POST http://localhost:8080/auth/logout \
+  -H "Authorization: Bearer $ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d "{\"refresh_token\":\"$REFRESH_TOKEN\"}"
+```
+
+**Ответ `200`:**
+```json
+{
+  "message": "logged out"
+}
+```
+
+---
+
+### Выход со всех устройств
+
+```bash
+curl -X POST http://localhost:8080/auth/logout_all \
+  -H "Authorization: Bearer $ACCESS_TOKEN"
+```
+
+**Ответ `200`:**
+```json
+{
+  "message": "logged out from all devices"
+}
+```
+
+---
+
+## События
+
+### RabbitMQ — очередь `email.queue`
+
+Используется для отправки писем пользователям.
+Просмотр: http://localhost:15672 → Queues → email.queue → Get messages
+
+| Тип | Когда отправляется |
+|---|---|
+| `EMAIL_VERIFY` | При регистрации, повторной отправке кода и попытке входа без верификации |
+| `PASSWORD_RESET` | При запросе сброса пароля |
 
 **Верификация email:**
 ```json
@@ -343,4 +372,17 @@ curl -X POST http://localhost:8080/auth/password-reset/confirm \
 }
 ```
 
-Просмотреть сообщения можно в RabbitMQ Management UI: `http://localhost:15672` (логин: `user`, пароль: `password`).
+### Kafka — топик `podcast.user.register`
+
+Используется для уведомления других сервисов о новых пользователях.
+Просмотр: http://localhost:8090 → Topics → podcast.user.register → Messages
+
+**Регистрация пользователя:**
+```json
+{
+  "user_id": "550e8400-e29b-41d4-a716-446655440000",
+  "username": "testuser"
+}
+```
+ 
+---

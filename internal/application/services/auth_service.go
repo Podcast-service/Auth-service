@@ -25,7 +25,7 @@ const (
 
 type AuthServices interface {
 	Register(ctx context.Context, req dto.RegisterRequest) (dto.User, error)
-	VerifyEmail(ctx context.Context, req dto.VerifyEmailRequest) (dto.TokenResponse, error)
+	VerifyEmail(ctx context.Context, req dto.VerifyEmailRequest, ipAddress, userAgent string) (dto.TokenResponse, error)
 	ResendVerification(ctx context.Context, req dto.ResendVerificationRequest) error
 	Login(ctx context.Context, req dto.LoginRequest, ipAddress, userAgent string) (dto.TokenResponse, error)
 	Refresh(ctx context.Context, req dto.RefreshTokenRequest) (dto.TokenResponse, error)
@@ -37,7 +37,8 @@ type authService struct {
 	authRepo        application.AuthRepository
 	sessionRepo     application.SessionRepository
 	userRepo        application.UserRepository
-	sender          Sender
+	rabbitPublisher Sender
+	kafkaProducer   Sender
 	jwtManager      *access.Manager
 	refreshTokenTTL time.Duration
 }
@@ -46,7 +47,8 @@ func NewAuthService(
 	authRepo application.AuthRepository,
 	sessionRepo application.SessionRepository,
 	userRepo application.UserRepository,
-	sender Sender,
+	rabbitPublisher Sender,
+	kafkaProducer Sender,
 	jwtManager *access.Manager,
 	refreshTokenTTL time.Duration,
 ) AuthServices {
@@ -54,7 +56,8 @@ func NewAuthService(
 		authRepo:        authRepo,
 		sessionRepo:     sessionRepo,
 		userRepo:        userRepo,
-		sender:          sender,
+		rabbitPublisher: rabbitPublisher,
+		kafkaProducer:   kafkaProducer,
 		jwtManager:      jwtManager,
 		refreshTokenTTL: refreshTokenTTL,
 	}
@@ -97,6 +100,19 @@ func (a authService) Register(ctx context.Context, req dto.RegisterRequest) (dto
 
 	a.sendEmailVerifyMessage(ctx, code, req.Email)
 
+	go func() {
+		err = a.kafkaProducer.SendMessage(context.WithoutCancel(ctx), dto.UserRegisteredMessage{
+			UserID:   userID.String(),
+			Username: req.Username,
+		})
+		if err != nil {
+			log.Error("send message to Kafka failed",
+				slog.String("email", req.Email),
+				slog.String("error", err.Error()),
+			)
+		}
+	}()
+
 	return dto.User{
 		ID:    userID,
 		Email: req.Email,
@@ -104,7 +120,7 @@ func (a authService) Register(ctx context.Context, req dto.RegisterRequest) (dto
 
 }
 
-func (a authService) VerifyEmail(ctx context.Context, req dto.VerifyEmailRequest) (dto.TokenResponse, error) {
+func (a authService) VerifyEmail(ctx context.Context, req dto.VerifyEmailRequest, ipAddress, userAgent string) (dto.TokenResponse, error) {
 	log := logging.FromContext(ctx)
 
 	token, err := a.authRepo.GetEmailVerifyToken(ctx, req.Email, req.Code)
@@ -152,7 +168,7 @@ func (a authService) VerifyEmail(ctx context.Context, req dto.VerifyEmailRequest
 	}
 
 	var resp dto.TokenResponse
-	resp, err = a.issueTokenPair(ctx, user, roles, "Initial Device", "System", "")
+	resp, err = a.issueTokenPair(ctx, user, roles, "Initial Device", userAgent, ipAddress)
 	if err != nil {
 		return dto.TokenResponse{}, fmt.Errorf("issue token pair: %w", err)
 	}
@@ -356,7 +372,7 @@ func (a authService) RequestPasswordReset(ctx context.Context, req dto.PasswordR
 		return fmt.Errorf("create password reset token: %w", err)
 	}
 
-	err = a.sender.SendMessage(ctx, dto.PasswordResetMessage{
+	err = a.rabbitPublisher.SendMessage(ctx, dto.PasswordResetMessage{
 		Type:      "PASSWORD_RESET",
 		Email:     req.Email,
 		ResetCode: code,
@@ -457,7 +473,7 @@ func (a authService) issueTokenPair(ctx context.Context, user domain.User, roles
 }
 
 func (a authService) sendEmailVerifyMessage(ctx context.Context, code, email string) {
-	err := a.sender.SendMessage(ctx, dto.EmailVerifyMessage{
+	err := a.rabbitPublisher.SendMessage(ctx, dto.EmailVerifyMessage{
 		Type:       "EMAIL_VERIFY",
 		Email:      email,
 		VerifyCode: code,

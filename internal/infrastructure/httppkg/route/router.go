@@ -20,6 +20,7 @@ func RegisterRoutes(
 
 	r.Route("/auth", func(r chi.Router) {
 		r.Post("/register", auth.Register)
+		r.Post("/resend-verification", auth.ResendVerificationEmail)
 		r.Post("/verify-email", auth.VerifyEmail)
 		r.Post("/login", auth.Login)
 		r.Post("/refresh", auth.Refresh)

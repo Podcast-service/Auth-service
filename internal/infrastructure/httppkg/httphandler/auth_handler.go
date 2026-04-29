@@ -78,8 +78,20 @@ func (h *AuthHandler) VerifyEmail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	var ipAddress string
+	ipAddress, _, err = net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		ipAddress = r.RemoteAddr
+	}
+	userAgent := r.Header.Get("User-Agent")
+
+	if forwarded := r.Header.Get("X-Forwarded-For"); forwarded != "" {
+		parts := strings.SplitN(forwarded, ",", ipHeaderPartsCount)
+		ipAddress = strings.TrimSpace(parts[0])
+	}
+
 	var resp dto.TokenResponse
-	resp, err = h.svc.VerifyEmail(r.Context(), req)
+	resp, err = h.svc.VerifyEmail(r.Context(), req, ipAddress, userAgent)
 	if err != nil {
 		log.Warn("failed to verify email",
 			slog.String("error", err.Error()),

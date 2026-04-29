@@ -15,12 +15,6 @@ import (
 )
 
 func (r *ORMRepository) CreateRefreshToken(ctx context.Context, token domain.RefreshToken) error {
-	var ipAddress any
-	if token.IPAddress == "" { // исправить после синка
-		ipAddress = nil
-	} else {
-		ipAddress = token.IPAddress
-	}
 	var err error
 	var sql string
 	var args []interface{}
@@ -29,7 +23,7 @@ func (r *ORMRepository) CreateRefreshToken(ctx context.Context, token domain.Ref
 		Columns("id", "user_id", "token_hash", "device_name",
 			"ip_address", "user_agent", "revoked", "expires_at").
 		Values(token.ID, token.UserID, token.TokenHash, token.DeviceName,
-			ipAddress, token.UserAgent, token.Revoked, token.ExpiresAt).
+			token.IPAddress, token.UserAgent, token.Revoked, token.ExpiresAt).
 		ToSql()
 	if err != nil {
 		return fmt.Errorf("build CreateRefreshToken query: %w", err)
@@ -192,4 +186,18 @@ func (r *ORMRepository) GetUserDevices(ctx context.Context, userID uuid.UUID) ([
 		return devices, fmt.Errorf("get user devices: %w", rows.Err())
 	}
 	return devices, nil
+}
+
+func (r *ORMRepository) DeleteExpiredTokens(ctx context.Context) error {
+	sql, args, err := psql.
+		Delete("refresh_tokens").
+		Where("expires_at < NOW()").
+		ToSql()
+	if err != nil {
+		return fmt.Errorf("build DeleteExpiredTokens query: %w", err)
+	}
+	if _, err = r.pool.Exec(ctx, sql, args...); err != nil {
+		return fmt.Errorf("execute DeleteExpiredTokens query: %w", err)
+	}
+	return nil
 }

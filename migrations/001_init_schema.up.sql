@@ -65,3 +65,81 @@ CREATE INDEX IF NOT EXISTS idx_prt_user_code ON password_reset_tokens (user_id, 
 INSERT INTO roles (id, name) VALUES
                                  ('00000000-0000-0000-0000-000000000001', 'user'),
                                  ('00000000-0000-0000-0000-000000000002', 'admin');
+
+-- оставляем только последние 3 валидных кода верификации email
+CREATE OR REPLACE FUNCTION limit_email_verify_tokens()
+RETURNS TRIGGER AS $$
+BEGIN
+DELETE FROM email_verification_tokens
+WHERE user_id = NEW.user_id
+  AND id NOT IN (
+    SELECT id
+    FROM email_verification_tokens
+    WHERE user_id = NEW.user_id
+    ORDER BY created_at DESC
+    LIMIT 3
+    );
+RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_limit_email_verify_tokens
+    AFTER INSERT ON email_verification_tokens
+    FOR EACH ROW
+    EXECUTE FUNCTION limit_email_verify_tokens();
+
+-- оставляем только последние 3 валидных кода сброса пароля
+CREATE OR REPLACE FUNCTION limit_password_reset_tokens()
+RETURNS TRIGGER AS $$
+BEGIN
+DELETE FROM password_reset_tokens
+WHERE user_id = NEW.user_id
+  AND id NOT IN (
+    SELECT id
+    FROM password_reset_tokens
+    WHERE user_id = NEW.user_id
+    ORDER BY created_at DESC
+    LIMIT 3
+    );
+RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_limit_password_reset_tokens
+    AFTER INSERT ON password_reset_tokens
+    FOR EACH ROW
+    EXECUTE FUNCTION limit_password_reset_tokens();
+
+-- удаляем все коды верификации после подтверждения email
+CREATE OR REPLACE FUNCTION cleanup_email_verify_tokens()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF OLD.email_verified = false AND NEW.email_verified = true THEN
+DELETE FROM email_verification_tokens
+WHERE user_id = NEW.id;
+END IF;
+RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_cleanup_email_verify_tokens
+    AFTER UPDATE ON users
+    FOR EACH ROW
+    EXECUTE FUNCTION cleanup_email_verify_tokens();
+
+-- удаляем все коды сброса пароля после смены пароля
+CREATE OR REPLACE FUNCTION cleanup_password_reset_tokens()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF OLD.password_hash != NEW.password_hash THEN
+DELETE FROM password_reset_tokens
+WHERE user_id = NEW.id;
+END IF;
+RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_cleanup_password_reset_tokens
+    AFTER UPDATE ON users
+    FOR EACH ROW
+    EXECUTE FUNCTION cleanup_password_reset_tokens();
