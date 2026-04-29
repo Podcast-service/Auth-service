@@ -5,7 +5,7 @@ WORKDIR /app
 COPY go.mod go.sum ./
 RUN go mod download
 
-COPY . .
+COPY docker .
 
 RUN go build -o auth_service ./cmd/auth_service/main.go
 

@@ -86,7 +86,7 @@ services:
   app:
     build:
       context: .
-      dockerfile: docker/auth_service.Dockerfile
+      dockerfile: Dockerfile
     container_name: auth_service_app
     depends_on:
       postgres:
