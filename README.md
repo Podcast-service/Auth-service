@@ -146,7 +146,7 @@ curl -X POST http://localhost:8080/auth/verify-email \
 ```bash
 curl -X POST http://localhost:8080/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"email":"user@example.com","password":"secret123","device_name":"My Laptop"}'
+  -d '{"email":"user@example.com","password":"secret123","device_name":"My Laptop1"}'
 ```
 
 **Ответ `200`:**
