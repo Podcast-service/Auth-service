@@ -73,7 +73,7 @@ func (p *Publisher) SendMessage(ctx context.Context, message any) error {
 	log := logging.FromContext(ctx)
 	body, err := json.Marshal(message)
 	if err != nil {
-		log.Error("Failed to marshal message",
+		log.Error("Failed to marshal messages",
 			slog.Any("message", message),
 			slog.String("error", err.Error()),
 		)

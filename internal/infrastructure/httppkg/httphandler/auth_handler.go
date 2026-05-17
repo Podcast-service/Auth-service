@@ -54,7 +54,7 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	}
 
 	log.Info("user registered successfully",
-		slog.String("user_id", user.ID.String()),
+		slog.String("user_ids", user.ID.String()),
 		slog.String("email", user.Email),
 	)
 
