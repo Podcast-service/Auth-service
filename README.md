@@ -17,7 +17,7 @@ docker compose up --build
 ### 3. Проверить что сервис запущен
 
 ```bash
-curl http://localhost:8080/auth/me/roles
+curl http://31.130.132.89:8080/auth/me/roles
 # ожидаем: 401 Unauthorized (сервис работает, токен не передан)
 ```
 
@@ -25,16 +25,16 @@ curl http://localhost:8080/auth/me/roles
 
 ## UI для мониторинга
 
-| Сервис | URL | Логин / Пароль |
-|---|---|---|
-| RabbitMQ Management | http://localhost:15672 | user / password |
-| Kafka UI | http://localhost:8090 | — |
+| Сервис | URL | Логин / Пароль   |
+|---|---|------------------|
+| RabbitMQ Management | http://31.130.132.89:15672 | admin / password |
+| Kafka UI | http://31.130.132.89:8090 | —                |
  
 ---
 
 ## API
 
-Базовый URL: `http://localhost:8080`
+Базовый URL: `http://31.130.132.89:8080`
 
 ### Публичные эндпоинты
 
@@ -65,7 +65,7 @@ curl http://localhost:8080/auth/me/roles
 ### Регистрация
 
 ```bash
-curl -X POST http://localhost:8080/auth/register \
+curl -X POST http://31.130.132.89:8080/auth/register \
   -H "Content-Type: application/json" \
   -d '{"email":"user@example.com","password":"secret123","username":"testuser"}'
 ```
@@ -81,7 +81,7 @@ curl -X POST http://localhost:8080/auth/register \
 После регистрации происходит два события:
 
 **RabbitMQ** — в очереди `email.queue` появится код верификации.
-Открой http://localhost:15672 → Queues → email.queue → Get messages:
+Открой http://31.130.132.89:15672 → Queues → email.queue → Get messages:
 ```json
 {
   "type": "EMAIL_VERIFY",
@@ -91,7 +91,7 @@ curl -X POST http://localhost:8080/auth/register \
 ```
 
 **Kafka** — в топике `podcast.user.register` появится событие.
-Открой http://localhost:8090 → Topics → podcast.user.register → Messages:
+Открой http://31.130.132.89:8090 → Topics → podcast.user.register → Messages:
 ```json
 {
   "user_id": "550e8400-e29b-41d4-a716-446655440000",
@@ -106,7 +106,7 @@ curl -X POST http://localhost:8080/auth/register \
 Если код не получен или уже истёк — запроси новый. Старые коды при этом инвалидируются (хранятся только 3 последних):
 
 ```bash
-curl -X POST http://localhost:8080/auth/resend-verification \
+curl -X POST http://31.130.132.89:8080/auth/resend-verification \
   -H "Content-Type: application/json" \
   -d '{"email":"user@example.com"}'
 ```
@@ -125,7 +125,7 @@ curl -X POST http://localhost:8080/auth/resend-verification \
 Возьми актуальный код из RabbitMQ и подставь в запрос:
 
 ```bash
-curl -X POST http://localhost:8080/auth/verify-email \
+curl -X POST http://31.130.132.89:8080/auth/verify-email \
   -H "Content-Type: application/json" \
   -d '{"email":"user@example.com","code":"<$VERIFY_CODE>"}'
 ```
@@ -144,7 +144,7 @@ curl -X POST http://localhost:8080/auth/verify-email \
 ### Вход
 
 ```bash
-curl -X POST http://localhost:8080/auth/login \
+curl -X POST http://31.130.132.89:8080/auth/login \
   -H "Content-Type: application/json" \
   -d '{"email":"user@example.com","password":"secret123","device_name":"My Laptop2"}'
 ```
@@ -177,7 +177,7 @@ REFRESH_TOKEN="d7f3a1b2c4e5..."
 ### Обновление токенов
 
 ```bash
-curl -X POST http://localhost:8080/auth/refresh \
+curl -X POST http://31.130.132.89:8080/auth/refresh \
   -H "Content-Type: application/json" \
   -d "{\"refresh_token\":\"$REFRESH_TOKEN\"}"
 ```
@@ -196,7 +196,7 @@ curl -X POST http://localhost:8080/auth/refresh \
 ### Получить роли
 
 ```bash
-curl http://localhost:8080/auth/me/roles \
+curl http://31.130.132.89:8080/auth/me/roles \
   -H "Authorization: Bearer $ACCESS_TOKEN"
 ```
 
@@ -212,7 +212,7 @@ curl http://localhost:8080/auth/me/roles \
 ### Добавить роль
 
 ```bash
-curl -X POST http://localhost:8080/auth/me/update-roles \
+curl -X POST http://31.130.132.89:8080/auth/me/update-roles \
   -H "Authorization: Bearer $ACCESS_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"role_name":"admin"}'
@@ -228,7 +228,7 @@ curl -X POST http://localhost:8080/auth/me/update-roles \
 
 Проверь что роль добавилась (используй новый токен из ответа):
 ```bash
-curl http://localhost:8080/auth/me/roles \
+curl http://31.130.132.89:8080/auth/me/roles \
   -H "Authorization: Bearer <новый_access_token>"
 ```
 
@@ -244,7 +244,7 @@ curl http://localhost:8080/auth/me/roles \
 ### Список активных устройств
 
 ```bash
-curl http://localhost:8080/auth/devices \
+curl http://31.130.132.89:8080/auth/devices \
   -H "Authorization: Bearer $ACCESS_TOKEN"
 ```
 
@@ -267,7 +267,7 @@ curl http://localhost:8080/auth/devices \
 ### Запрос сброса пароля
 
 ```bash
-curl -X POST http://localhost:8080/auth/password-reset/request \
+curl -X POST http://31.130.132.89:8080/auth/password-reset/request \
   -H "Content-Type: application/json" \
   -d '{"email":"user@example.com"}'
 ```
@@ -293,7 +293,7 @@ curl -X POST http://localhost:8080/auth/password-reset/request \
 ### Подтверждение сброса пароля
 
 ```bash
-curl -X POST http://localhost:8080/auth/password-reset/confirm \
+curl -X POST http://31.130.132.89:8080/auth/password-reset/confirm \
   -H "Content-Type: application/json" \
   -d '{"email":"user@example.com","code":"<$RESET_CODE>","new_password":"newSecret456"}'
 ```
@@ -310,7 +310,7 @@ curl -X POST http://localhost:8080/auth/password-reset/confirm \
 ### Выход с текущего устройства
 
 ```bash
-curl -X POST http://localhost:8080/auth/logout \
+curl -X POST http://31.130.132.89:8080/auth/logout \
   -H "Authorization: Bearer $ACCESS_TOKEN" \
   -H "Content-Type: application/json" \
   -d "{\"refresh_token\":\"$REFRESH_TOKEN\"}"
@@ -328,7 +328,7 @@ curl -X POST http://localhost:8080/auth/logout \
 ### Выход со всех устройств
 
 ```bash
-curl -X POST http://localhost:8080/auth/logout_all \
+curl -X POST http://31.130.132.89:8080/auth/logout_all \
   -H "Authorization: Bearer $ACCESS_TOKEN"
 ```
 
@@ -346,7 +346,7 @@ curl -X POST http://localhost:8080/auth/logout_all \
 ### RabbitMQ — очередь `email.queue`
 
 Используется для отправки писем пользователям.
-Просмотр: http://localhost:15672 → Queues → email.queue → Get messages
+Просмотр: http://31.130.132.89:15672 → Queues → email.queue → Get messages
 
 | Тип | Когда отправляется |
 |---|---|
@@ -374,7 +374,7 @@ curl -X POST http://localhost:8080/auth/logout_all \
 ### Kafka — топик `podcast.user.register`
 
 Используется для уведомления других сервисов о новых пользователях.
-Просмотр: http://localhost:8090 → Topics → podcast.user.register → Messages
+Просмотр: http://31.130.132.89:8090 → Topics → podcast.user.register → Messages
 
 **Регистрация пользователя:**
 ```json

@@ -20,7 +20,7 @@ services:
     image: rabbitmq:3-management
     container_name: auth_rabbitmq
     environment:
-      RABBITMQ_DEFAULT_USER: user
+      RABBITMQ_DEFAULT_USER: admin
       RABBITMQ_DEFAULT_PASS: password
     ports:
       - "5672:5672"
