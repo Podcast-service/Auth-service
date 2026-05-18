@@ -23,7 +23,7 @@ func RegisterRoutes(
 		AllowedOrigins: []string{
 			"http://localhost:5173",
 			"http://localhost:1420",
-			"tauri://localhost",
+			"http://tauri.localhost",
 		},
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type"},
