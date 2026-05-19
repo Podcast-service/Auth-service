@@ -17,7 +17,7 @@ docker compose up --build
 ### 3. Проверить что сервис запущен
 
 ```bash
-curl http://31.130.132.89:8080/auth/me/roles
+curl http://31.130.132.89/auth/me/roles
 # ожидаем: 401 Unauthorized (сервис работает, токен не передан)
 ```
 
@@ -34,7 +34,7 @@ curl http://31.130.132.89:8080/auth/me/roles
 
 ## API
 
-Базовый URL: `http://31.130.132.89:8080`
+Базовый URL: `http://31.130.132.89`
 
 ### Публичные эндпоинты
 
@@ -65,7 +65,7 @@ curl http://31.130.132.89:8080/auth/me/roles
 ### Регистрация
 
 ```bash
-curl -X POST http://31.130.132.89:8080/auth/register \
+curl -X POST http://31.130.132.89/auth/register \
   -H "Content-Type: application/json" \
   -d '{"email":"user@example.com","password":"secret123","username":"testuser"}'
 ```
@@ -106,7 +106,7 @@ curl -X POST http://31.130.132.89:8080/auth/register \
 Если код не получен или уже истёк — запроси новый. Старые коды при этом инвалидируются (хранятся только 3 последних):
 
 ```bash
-curl -X POST http://31.130.132.89:8080/auth/resend-verification \
+curl -X POST http://31.130.132.89/auth/resend-verification \
   -H "Content-Type: application/json" \
   -d '{"email":"user@example.com"}'
 ```
@@ -125,7 +125,7 @@ curl -X POST http://31.130.132.89:8080/auth/resend-verification \
 Возьми актуальный код из RabbitMQ и подставь в запрос:
 
 ```bash
-curl -X POST http://31.130.132.89:8080/auth/verify-email \
+curl -X POST http://31.130.132.89/auth/verify-email \
   -H "Content-Type: application/json" \
   -d '{"email":"user@example.com","code":"<$VERIFY_CODE>"}'
 ```
@@ -144,7 +144,7 @@ curl -X POST http://31.130.132.89:8080/auth/verify-email \
 ### Вход
 
 ```bash
-curl -X POST http://31.130.132.89:8080/auth/login \
+curl -X POST http://31.130.132.89/auth/login \
   -H "Content-Type: application/json" \
   -d '{"email":"user@example.com","password":"secret123","device_name":"My Laptop2"}'
 ```
@@ -177,7 +177,7 @@ REFRESH_TOKEN="d7f3a1b2c4e5..."
 ### Обновление токенов
 
 ```bash
-curl -X POST http://31.130.132.89:8080/auth/refresh \
+curl -X POST http://31.130.132.89/auth/refresh \
   -H "Content-Type: application/json" \
   -d "{\"refresh_token\":\"$REFRESH_TOKEN\"}"
 ```
@@ -196,7 +196,7 @@ curl -X POST http://31.130.132.89:8080/auth/refresh \
 ### Получить роли
 
 ```bash
-curl http://31.130.132.89:8080/auth/me/roles \
+curl http://31.130.132.89/auth/me/roles \
   -H "Authorization: Bearer $ACCESS_TOKEN"
 ```
 
@@ -212,7 +212,7 @@ curl http://31.130.132.89:8080/auth/me/roles \
 ### Добавить роль
 
 ```bash
-curl -X POST http://31.130.132.89:8080/auth/me/update-roles \
+curl -X POST http://31.130.132.89/auth/me/update-roles \
   -H "Authorization: Bearer $ACCESS_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"role_name":"admin"}'
@@ -228,7 +228,7 @@ curl -X POST http://31.130.132.89:8080/auth/me/update-roles \
 
 Проверь что роль добавилась (используй новый токен из ответа):
 ```bash
-curl http://31.130.132.89:8080/auth/me/roles \
+curl http://31.130.132.89/auth/me/roles \
   -H "Authorization: Bearer <новый_access_token>"
 ```
 
@@ -244,7 +244,7 @@ curl http://31.130.132.89:8080/auth/me/roles \
 ### Список активных устройств
 
 ```bash
-curl http://31.130.132.89:8080/auth/devices \
+curl http://31.130.132.89/auth/devices \
   -H "Authorization: Bearer $ACCESS_TOKEN"
 ```
 
@@ -267,7 +267,7 @@ curl http://31.130.132.89:8080/auth/devices \
 ### Запрос сброса пароля
 
 ```bash
-curl -X POST http://31.130.132.89:8080/auth/password-reset/request \
+curl -X POST http://31.130.132.89/auth/password-reset/request \
   -H "Content-Type: application/json" \
   -d '{"email":"user@example.com"}'
 ```
@@ -293,7 +293,7 @@ curl -X POST http://31.130.132.89:8080/auth/password-reset/request \
 ### Подтверждение сброса пароля
 
 ```bash
-curl -X POST http://31.130.132.89:8080/auth/password-reset/confirm \
+curl -X POST http://31.130.132.89/auth/password-reset/confirm \
   -H "Content-Type: application/json" \
   -d '{"email":"user@example.com","code":"<$RESET_CODE>","new_password":"newSecret456"}'
 ```
@@ -310,7 +310,7 @@ curl -X POST http://31.130.132.89:8080/auth/password-reset/confirm \
 ### Выход с текущего устройства
 
 ```bash
-curl -X POST http://31.130.132.89:8080/auth/logout \
+curl -X POST http://31.130.132.89/auth/logout \
   -H "Authorization: Bearer $ACCESS_TOKEN" \
   -H "Content-Type: application/json" \
   -d "{\"refresh_token\":\"$REFRESH_TOKEN\"}"
@@ -328,7 +328,7 @@ curl -X POST http://31.130.132.89:8080/auth/logout \
 ### Выход со всех устройств
 
 ```bash
-curl -X POST http://31.130.132.89:8080/auth/logout_all \
+curl -X POST http://31.130.132.89/auth/logout_all \
   -H "Authorization: Bearer $ACCESS_TOKEN"
 ```
 
