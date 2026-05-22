@@ -17,7 +17,7 @@ func GenerateToken() (raw string, hash string, err error) {
 	b := make([]byte, tokenLength)
 	_, err = rand.Read(b)
 	if err != nil {
-		return "", "", fmt.Errorf("generate refresh token: %w", err)
+		return "", "", fmt.Errorf("generate refresh tokens: %w", err)
 	}
 	raw = hex.EncodeToString(b)
 	hash = HashToken(raw)
