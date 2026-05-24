@@ -18,6 +18,7 @@ import (
 type UserService interface {
 	Roles(ctx context.Context, userID uuid.UUID) (dto.RolesResponse, error)
 	UpdateRoles(ctx context.Context, userID uuid.UUID, req dto.UpdateRolesRequest) (dto.AccessTokenResponse, error)
+	GetByID(ctx context.Context, userID uuid.UUID) (dto.User, error)
 }
 
 type userService struct {
@@ -84,5 +85,22 @@ func (u userService) UpdateRoles(ctx context.Context, userID uuid.UUID, req dto.
 	return dto.AccessTokenResponse{
 		AccessToken: accessToken,
 		ExpiresIn:   int64(u.jwtManager.AccessTokenTTL.Seconds()),
+	}, nil
+}
+
+func (u userService) GetByID(ctx context.Context, userID uuid.UUID) (dto.User, error) {
+	log := logging.FromContext(ctx)
+	user, err := u.repo.GetUserByID(ctx, userID)
+	if err != nil {
+		return dto.User{}, fmt.Errorf("get user by id: %w", err)
+	}
+
+	log.Info("user received by id",
+		slog.String("user_id", user.ID.String()),
+	)
+
+	return dto.User{
+		ID:    user.ID,
+		Email: user.Email,
 	}, nil
 }

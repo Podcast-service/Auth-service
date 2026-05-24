@@ -14,6 +14,7 @@ func RegisterRoutes(
 	auth *httphandler.AuthHandler,
 	session *httphandler.SessionHandler,
 	user *httphandler.UserHandler,
+	internalUser *httphandler.InternalUserHandler,
 	jwtManager *access.Manager,
 ) chi.Router {
 	r := chi.NewRouter()
@@ -51,6 +52,9 @@ func RegisterRoutes(
 				r.Post("/update-roles", user.UpdateRoles)
 			})
 
+		})
+		r.Route("/internal", func(r chi.Router) {
+			r.Get("/users/{user_id}", internalUser.GetByID)
 		})
 	})
 	return r
