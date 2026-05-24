@@ -119,8 +119,9 @@ func buildRouter(
 	authHandler := httphandler.NewAuthHandler(authService)
 	sessionHandler := httphandler.NewSessionHandler(sessionService)
 	userHandler := httphandler.NewUserHandler(userService)
+	internalUserHandler := httphandler.NewInternalUserHandler(userService)
 
-	return route.RegisterRoutes(authHandler, sessionHandler, userHandler, jwtManager)
+	return route.RegisterRoutes(authHandler, sessionHandler, userHandler, internalUserHandler, jwtManager)
 }
 
 func runHTTPServer(ctx context.Context, log *slog.Logger, handler http.Handler) error {
