@@ -99,14 +99,6 @@ func (r *ORMRepository) RevokeRefreshToken(ctx context.Context, id uuid.UUID) er
 }
 
 func (r *ORMRepository) RevokeAllUserTokens(ctx context.Context, userID uuid.UUID) error {
-	err := r.revokeAllUserTokens(ctx, r.pool, userID)
-	if err != nil {
-		return fmt.Errorf("revoke all user tokens: %w", err)
-	}
-	return nil
-}
-
-func (r *ORMRepository) revokeAllUserTokens(ctx context.Context, db queryRunner, userID uuid.UUID) error {
 	var err error
 	var sql string
 	var args []interface{}
@@ -119,7 +111,7 @@ func (r *ORMRepository) revokeAllUserTokens(ctx context.Context, db queryRunner,
 		return fmt.Errorf("build RevokeAllUserTokens query: %w", err)
 	}
 
-	_, err = db.Exec(ctx, sql, args...)
+	_, err = r.pool.Exec(ctx, sql, args...)
 	if err != nil {
 		return fmt.Errorf("execute RevokeAllUserTokens query: %w", err)
 	}

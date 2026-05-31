@@ -317,7 +317,7 @@ curl -X POST http://31.130.132.89/auth/password-change \
   -d '{"old_password":"secret123","new_password":"newSecret456"}'
 ```
 
-**Ответ `200`** — пароль изменён, все refresh-токены пользователя отозваны:
+**Ответ `200`** — пароль изменён, текущие сессии пользователя сохраняются:
 ```json
 {
   "message": "password has been changed"
