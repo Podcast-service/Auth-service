@@ -125,11 +125,6 @@ func (r *ORMRepository) ChangePassword(ctx context.Context, userID uuid.UUID, ne
 		return fmt.Errorf("update password hash: %w", err)
 	}
 
-	err = r.revokeAllUserTokens(ctx, tx, userID)
-	if err != nil {
-		return fmt.Errorf("revoke all refresh tokens: %w", err)
-	}
-
 	err = tx.Commit(ctx)
 	if err != nil {
 		return fmt.Errorf("commit transaction: %w", err)
