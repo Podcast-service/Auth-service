@@ -48,6 +48,7 @@ func RegisterRoutes(
 		})
 		r.Group(func(r chi.Router) {
 			r.Use(authmiddleware.AuthMiddleware(jwtManager))
+			r.Post("/password-change", auth.ChangePassword)
 			r.Post("/logout", session.Logout)
 			r.Post("/logout_all", session.LogoutAll)
 			r.Get("/devices", session.Devices)

@@ -54,6 +54,7 @@ curl http://31.130.132.89/auth/me/roles
 |---|---|---|
 | `POST` | `/auth/logout` | Выход с текущего устройства |
 | `POST` | `/auth/logout_all` | Выход со всех устройств |
+| `POST` | `/auth/password-change` | Смена пароля |
 | `GET` | `/auth/devices` | Список активных устройств |
 | `GET` | `/auth/me/roles` | Роли текущего пользователя |
 | `POST` | `/auth/me/update-roles` | Добавить роль пользователю |
@@ -302,6 +303,24 @@ curl -X POST http://31.130.132.89/auth/password-reset/confirm \
 ```json
 {
   "message": "password has been reset"
+}
+```
+
+---
+
+### Смена пароля
+
+```bash
+curl -X POST http://31.130.132.89/auth/password-change \
+  -H "Authorization: Bearer $ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"old_password":"secret123","new_password":"newSecret456"}'
+```
+
+**Ответ `200`** — пароль изменён, все refresh-токены пользователя отозваны:
+```json
+{
+  "message": "password has been changed"
 }
 ```
 
