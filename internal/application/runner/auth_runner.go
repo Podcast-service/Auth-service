@@ -11,6 +11,8 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 
 	"github.com/Podcast-service/Auth-service/internal/application/services"
 	"github.com/Podcast-service/Auth-service/internal/infrastructure/config"
@@ -21,6 +23,7 @@ import (
 	"github.com/Podcast-service/Auth-service/internal/infrastructure/ormrepository"
 	"github.com/Podcast-service/Auth-service/internal/infrastructure/postgres"
 	"github.com/Podcast-service/Auth-service/internal/infrastructure/rabitmq"
+	"github.com/Podcast-service/Auth-service/internal/infrastructure/telemetry"
 	"github.com/Podcast-service/Auth-service/internal/infrastructure/tokens/access"
 )
 
@@ -32,16 +35,61 @@ const (
 )
 
 func Run() error {
-	log := logging.Init()
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
+	lp, err := telemetry.InitLogger(ctx)
+	if err != nil {
+		return fmt.Errorf("init logger: %w", err)
+	}
+
+	log := logging.Init()
 	ctx = logging.With(ctx, log)
+
+	defer func() {
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
+		defer cancel()
+		if shutdownErr := lp.Shutdown(shutdownCtx); shutdownErr != nil {
+			log.Error("shutdown logger provider",
+				slog.String("error", shutdownErr.Error()),
+			)
+		}
+	}()
 
 	cfg, err := config.LoadConfig()
 	if err != nil {
 		return fmt.Errorf("load config: %w", err)
 	}
+
+	var tp *sdktrace.TracerProvider
+	tp, err = telemetry.InitTracer(ctx)
+	if err != nil {
+		return fmt.Errorf("init tracer: %w", err)
+	}
+	defer func() {
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
+		defer cancel()
+		if shutdownErr := tp.Shutdown(shutdownCtx); shutdownErr != nil {
+			log.Error("shutdown tracer provider",
+				slog.String("error", shutdownErr.Error()),
+			)
+		}
+	}()
+
+	var mp *sdkmetric.MeterProvider
+	mp, err = telemetry.InitMeter(ctx)
+	if err != nil {
+		return fmt.Errorf("init meter: %w", err)
+	}
+	defer func() {
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
+		defer cancel()
+		if shutdownErr := mp.Shutdown(shutdownCtx); shutdownErr != nil {
+			log.Error("shutdown meter provider",
+				slog.String("error", shutdownErr.Error()),
+			)
+		}
+	}()
 
 	var pool *pgxpool.Pool
 	pool, err = initPostgres(ctx, cfg)

@@ -101,6 +101,14 @@ services:
       - "8080:8080"
     env_file:
       - .env
+    networks:
+      - default
+      - otel
 volumes:
   postgres_data:
   kafka_data:
+
+networks:
+  otel:
+    external: true
+    name: ot_collector_otel

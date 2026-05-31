@@ -1,9 +1,12 @@
 package route
 
 import (
+	"net/http"
+
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 
 	"github.com/Podcast-service/Auth-service/internal/infrastructure/httppkg/authmiddleware"
 	"github.com/Podcast-service/Auth-service/internal/infrastructure/httppkg/httphandler"
@@ -18,6 +21,7 @@ func RegisterRoutes(
 	jwtManager *access.Manager,
 ) chi.Router {
 	r := chi.NewRouter()
+	r.Use(otelHTTPMiddleware)
 	r.Use(middleware.Recoverer)
 
 	r.Use(cors.Handler(cors.Options{
@@ -58,4 +62,12 @@ func RegisterRoutes(
 		})
 	})
 	return r
+}
+
+func otelHTTPMiddleware(next http.Handler) http.Handler {
+	return otelhttp.NewHandler(next, "http.server",
+		otelhttp.WithSpanNameFormatter(func(_ string, r *http.Request) string {
+			return r.Method + " " + r.URL.Path
+		}),
+	)
 }
