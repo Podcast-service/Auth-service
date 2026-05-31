@@ -108,6 +108,35 @@ func (r *ORMRepository) ResetPassword(ctx context.Context, token domain.Password
 	return nil
 }
 
+func (r *ORMRepository) ChangePassword(ctx context.Context, userID uuid.UUID, newPasswordHash string) error {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("begin transaction: %w", err)
+	}
+	defer func() {
+		rbErr := tx.Rollback(ctx)
+		if rbErr != nil && !errors.Is(rbErr, pgx.ErrTxClosed) {
+			fmt.Printf("rollback transaction: %v", rbErr)
+		}
+	}()
+
+	err = r.updatePasswordHash(ctx, tx, userID, newPasswordHash)
+	if err != nil {
+		return fmt.Errorf("update password hash: %w", err)
+	}
+
+	err = r.revokeAllUserTokens(ctx, tx, userID)
+	if err != nil {
+		return fmt.Errorf("revoke all refresh tokens: %w", err)
+	}
+
+	err = tx.Commit(ctx)
+	if err != nil {
+		return fmt.Errorf("commit transaction: %w", err)
+	}
+	return nil
+}
+
 func (r *ORMRepository) GetUserByEmail(ctx context.Context, email string) (domain.User, error) {
 	var err error
 	var sql string

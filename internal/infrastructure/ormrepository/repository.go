@@ -180,7 +180,7 @@ func (r *ORMRepository) markEmailVerifyTokenUsed(ctx context.Context, tx pgx.Tx,
 	return nil
 }
 
-func (r *ORMRepository) updatePasswordHash(ctx context.Context, tx pgx.Tx, userID uuid.UUID, newHash string) error {
+func (r *ORMRepository) updatePasswordHash(ctx context.Context, db queryRunner, userID uuid.UUID, newHash string) error {
 	var err error
 	var sql string
 	var args []interface{}
@@ -196,7 +196,7 @@ func (r *ORMRepository) updatePasswordHash(ctx context.Context, tx pgx.Tx, userI
 
 	var cmdTag pgconn.CommandTag
 
-	cmdTag, err = tx.Exec(ctx, sql, args...)
+	cmdTag, err = db.Exec(ctx, sql, args...)
 	if err != nil {
 		return fmt.Errorf("execute updatePasswordHash query: %w", err)
 	}

@@ -31,6 +31,7 @@ type AuthServices interface {
 	Refresh(ctx context.Context, req dto.RefreshTokenRequest) (dto.TokenResponse, error)
 	RequestPasswordReset(ctx context.Context, req dto.PasswordResetRequest) error
 	ConfirmPasswordReset(ctx context.Context, req dto.PasswordResetConfirmRequest) error
+	ChangePassword(ctx context.Context, userID uuid.UUID, req dto.PasswordChangeRequest) error
 }
 
 type authService struct {
@@ -435,6 +436,40 @@ func (a authService) ConfirmPasswordReset(ctx context.Context, req dto.PasswordR
 	log.Info("password reset confirmed",
 		slog.String("token_id", token.ID.String()),
 		slog.String("user_id", token.UserID.String()),
+	)
+
+	return nil
+}
+
+func (a authService) ChangePassword(ctx context.Context, userID uuid.UUID, req dto.PasswordChangeRequest) error {
+	log := logging.FromContext(ctx)
+
+	user, err := a.authRepo.GetUserByID(ctx, userID)
+	if err != nil {
+		return fmt.Errorf("get user by id: %w", err)
+	}
+
+	err = bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(req.OldPassword))
+	if err != nil {
+		log.Warn("invalid old password",
+			slog.String("user_id", userID.String()),
+		)
+		return domain.ErrInvalidCredentials
+	}
+
+	var newPasswordHash []byte
+	newPasswordHash, err = bcrypt.GenerateFromPassword([]byte(req.NewPassword), bcrypt.DefaultCost)
+	if err != nil {
+		return fmt.Errorf("hash new password: %w", err)
+	}
+
+	err = a.authRepo.ChangePassword(ctx, userID, string(newPasswordHash))
+	if err != nil {
+		return fmt.Errorf("change password: %w", err)
+	}
+
+	log.Info("password changed",
+		slog.String("user_id", userID.String()),
 	)
 
 	return nil

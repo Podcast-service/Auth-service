@@ -250,6 +250,50 @@ func (h *AuthHandler) ConfirmPasswordReset(w http.ResponseWriter, r *http.Reques
 	httputils.WriteJSON(w, http.StatusOK, dto.MessageResponse{Message: "password has been reset"})
 }
 
+func (h *AuthHandler) ChangePassword(w http.ResponseWriter, r *http.Request) {
+	log := logging.FromContext(r.Context())
+	userID, ok := httputils.GetUserIDFromContext(r)
+	if !ok {
+		log.Warn("failed to get user ID from context for password change request")
+		httputils.WriteError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+
+	var req dto.PasswordChangeRequest
+	err := json.NewDecoder(r.Body).Decode(&req)
+	if err != nil {
+		log.Warn("failed to decode password change request body",
+			slog.String("user_id", userID.String()),
+			slog.String("error", err.Error()),
+		)
+		httputils.WriteError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	if req.OldPassword == "" || req.NewPassword == "" {
+		log.Warn("old password or new password is empty for password change request",
+			slog.String("user_id", userID.String()),
+		)
+		httputils.WriteError(w, http.StatusBadRequest, "old_password and new_password are required")
+		return
+	}
+
+	err = h.svc.ChangePassword(r.Context(), userID, req)
+	if err != nil {
+		log.Warn("failed to change password",
+			slog.String("user_id", userID.String()),
+			slog.String("error", err.Error()),
+		)
+		httputils.MapError(w, err)
+		return
+	}
+
+	log.Info("password changed successfully",
+		slog.String("user_id", userID.String()),
+	)
+
+	httputils.WriteJSON(w, http.StatusOK, dto.MessageResponse{Message: "password has been changed"})
+}
+
 func (h *AuthHandler) ResendVerificationEmail(w http.ResponseWriter, r *http.Request) {
 	log := logging.FromContext(r.Context())
 	var req dto.ResendVerificationRequest

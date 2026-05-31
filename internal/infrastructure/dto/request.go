@@ -35,6 +35,11 @@ type PasswordResetConfirmRequest struct {
 	NewPassword string `json:"new_password"`
 }
 
+type PasswordChangeRequest struct {
+	OldPassword string `json:"old_password"`
+	NewPassword string `json:"new_password"`
+}
+
 type ResendVerificationRequest struct {
 	Email string `json:"email"`
 }

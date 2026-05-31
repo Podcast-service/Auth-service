@@ -12,6 +12,7 @@ type AuthRepository interface {
 	RegisterUser(ctx context.Context, email, passwordHash string, verifyToken domain.EmailVerifyToken) (uuid.UUID, error)
 	ConfirmEmail(ctx context.Context, token domain.EmailVerifyToken) error
 	ResetPassword(ctx context.Context, token domain.PasswordResetToken, newPasswordHash string) error
+	ChangePassword(ctx context.Context, userID uuid.UUID, newPasswordHash string) error
 
 	GetUserByEmail(ctx context.Context, email string) (domain.User, error)
 	GetUserByID(ctx context.Context, id uuid.UUID) (domain.User, error)
