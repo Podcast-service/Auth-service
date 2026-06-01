@@ -18,6 +18,7 @@ func RegisterRoutes(
 	session *httphandler.SessionHandler,
 	user *httphandler.UserHandler,
 	internalUser *httphandler.InternalUserHandler,
+	admin *httphandler.AdminHandler,
 	jwtManager *access.Manager,
 ) chi.Router {
 	r := chi.NewRouter()
@@ -60,6 +61,14 @@ func RegisterRoutes(
 		})
 		r.Route("/internal", func(r chi.Router) {
 			r.Get("/users/{user_id}", internalUser.GetByID)
+		})
+		r.Route("/admin", func(r chi.Router) {
+			r.Use(authmiddleware.AuthMiddleware(jwtManager))
+			r.Use(authmiddleware.RequireRole("admin"))
+			r.Get("/users", admin.ListUsers)
+			r.Get("/users/{user_id}", admin.GetUser)
+			r.Post("/users/{user_id}/roles", admin.AddRole)
+			r.Delete("/users/{user_id}/roles/admin", admin.RemoveAdminRole)
 		})
 	})
 	return r

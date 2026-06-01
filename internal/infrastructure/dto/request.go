@@ -47,3 +47,7 @@ type ResendVerificationRequest struct {
 type UpdateRolesRequest struct {
 	RoleName string `json:"role_name"`
 }
+
+type AdminRoleRequest struct {
+	RoleName string `json:"role_name"`
+}

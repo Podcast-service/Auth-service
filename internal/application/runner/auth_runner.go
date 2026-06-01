@@ -163,13 +163,15 @@ func buildRouter(
 	authService := services.NewAuthService(repo, repo, repo, rabbitPublisher, kafkaProducer, jwtManager, RefreshTokenTTL)
 	sessionService := services.NewSessionService(repo)
 	userService := services.NewUserService(repo, jwtManager)
+	adminService := services.NewAdminService(repo)
 
 	authHandler := httphandler.NewAuthHandler(authService)
 	sessionHandler := httphandler.NewSessionHandler(sessionService)
 	userHandler := httphandler.NewUserHandler(userService)
 	internalUserHandler := httphandler.NewInternalUserHandler(userService)
+	adminHandler := httphandler.NewAdminHandler(adminService)
 
-	return route.RegisterRoutes(authHandler, sessionHandler, userHandler, internalUserHandler, jwtManager)
+	return route.RegisterRoutes(authHandler, sessionHandler, userHandler, internalUserHandler, adminHandler, jwtManager)
 }
 
 func runHTTPServer(ctx context.Context, log *slog.Logger, handler http.Handler) error {

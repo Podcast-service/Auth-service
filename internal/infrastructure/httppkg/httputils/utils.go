@@ -47,6 +47,10 @@ func MapError(w http.ResponseWriter, err error) {
 		WriteError(w, http.StatusForbidden, "token does not have access to this resource")
 	case errors.Is(err, domain.ErrAlreadyExists):
 		WriteError(w, http.StatusConflict, "resource already exists")
+	case errors.Is(err, domain.ErrInvalidRole):
+		WriteError(w, http.StatusBadRequest, "invalid role")
+	case errors.Is(err, domain.ErrLastAdmin):
+		WriteError(w, http.StatusConflict, "cannot remove the last admin")
 
 	default:
 		WriteError(w, http.StatusInternalServerError, "internal server error")
