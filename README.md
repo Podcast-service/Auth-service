@@ -58,6 +58,17 @@ curl http://31.130.132.89/auth/me/roles
 | `GET` | `/auth/devices` | Список активных устройств |
 | `GET` | `/auth/me/roles` | Роли текущего пользователя |
 | `POST` | `/auth/me/update-roles` | Добавить роль пользователю |
+
+### Admin-эндпоинты (требуют `Authorization: Bearer <token>` с ролью `admin`)
+
+| Метод | Путь | Описание |
+|---|---|---|
+| `GET` | `/auth/admin/users` | Список пользователей с ролями (фильтры + пагинация) |
+| `GET` | `/auth/admin/users/{user_id}` | Пользователь по id с ролями |
+| `POST` | `/auth/admin/users/{user_id}/roles` | Добавить роль пользователю |
+| `DELETE` | `/auth/admin/users/{user_id}/roles/admin` | Снять роль `admin` с пользователя |
+
+Подробное описание — раздел [Admin API](#admin-api).
  
 ---
 
@@ -357,6 +368,190 @@ curl -X POST http://31.130.132.89/auth/logout_all \
   "message": "logged out from all devices"
 }
 ```
+
+---
+
+## Admin API
+
+Эндпоинты под `/auth/admin` доступны только пользователям с ролью `admin`.
+Каждый запрос проходит два слоя:
+
+1. `AuthMiddleware` — валидация JWT access-токена. Без токена или с невалидным/просроченным токеном → `401 Unauthorized`.
+2. `RequireRole("admin")` — проверка, что в claims токена присутствует роль `admin`. Валидный токен без роли `admin` → `403 Forbidden`.
+
+Идентичность и роли актора берутся **только** из подписанного JWT, а не из тела запроса или query-параметров.
+
+Auth-service является source of truth для users, roles и authorization. Допустимые роли (strict lowercase): `user`, `author`, `admin`.
+
+### Общие коды ошибок
+
+| Код | Когда |
+|---|---|
+| `400 Bad Request` | Невалидный UUID, неизвестная роль, некорректные query-параметры |
+| `401 Unauthorized` | Токен отсутствует, невалиден или просрочен |
+| `403 Forbidden` | Токен валиден, но у пользователя нет роли `admin` |
+| `404 Not Found` | Целевой пользователь не найден |
+| `409 Conflict` | Попытка снять роль `admin` с последнего администратора |
+| `500 Internal Server Error` | Непредвиденная ошибка сервера/БД |
+
+Формат ошибки: `{"error": "<текст>"}`.
+
+---
+
+### 1. Список пользователей
+
+```
+GET /auth/admin/users
+Authorization: Bearer <ADMIN_ACCESS_TOKEN>
+```
+
+**Query-параметры (все опциональны):**
+
+| Параметр | Тип | По умолчанию | Описание |
+|---|---|---|---|
+| `q` | string | — | Поиск по email (подстрока, регистронезависимо) |
+| `role` | string | — | Фильтр по роли: `user`, `author`, `admin` |
+| `email_verified` | boolean | — | Фильтр по подтверждению email |
+| `page` | integer | `0` | Номер страницы (с нуля) |
+| `size` | integer | `20` | Размер страницы (макс. `100`) |
+| `sort` | string | `DATE_DESC` | Сортировка: `DATE_DESC`, `DATE_ASC`, `EMAIL_ASC` |
+
+```bash
+curl "http://31.130.132.89/auth/admin/users?role=admin&page=0&size=20&sort=DATE_DESC" \
+  -H "Authorization: Bearer $ADMIN_ACCESS_TOKEN"
+```
+
+**Ответ `200`:**
+```json
+{
+  "items": [
+    {
+      "id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+      "email": "user@example.com",
+      "email_verified": true,
+      "roles": ["author", "user"],
+      "created_at": "2026-05-01T10:00:00Z",
+      "updated_at": "2026-05-01T10:00:00Z"
+    }
+  ],
+  "page": 0,
+  "size": 20,
+  "total_elements": 1,
+  "total_pages": 1
+}
+```
+
+**Ошибки:** `400` (некорректные query-параметры), `401`, `403`.
+
+---
+
+### 2. Пользователь по id
+
+```
+GET /auth/admin/users/{user_id}
+Authorization: Bearer <ADMIN_ACCESS_TOKEN>
+```
+
+```bash
+curl http://31.130.132.89/auth/admin/users/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa \
+  -H "Authorization: Bearer $ADMIN_ACCESS_TOKEN"
+```
+
+**Ответ `200`:**
+```json
+{
+  "id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+  "email": "user@example.com",
+  "email_verified": true,
+  "roles": ["author", "user"],
+  "created_at": "2026-05-01T10:00:00Z",
+  "updated_at": "2026-05-01T10:00:00Z"
+}
+```
+
+**Ошибки:** `400` (невалидный UUID), `401`, `403`, `404`.
+
+---
+
+### 3. Добавить роль пользователю
+
+```
+POST /auth/admin/users/{user_id}/roles
+Authorization: Bearer <ADMIN_ACCESS_TOKEN>
+Content-Type: application/json
+```
+
+**Тело запроса** (`role_name` ∈ `user`, `author`, `admin`):
+```json
+{ "role_name": "admin" }
+```
+
+```bash
+curl -X POST http://31.130.132.89/auth/admin/users/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/roles \
+  -H "Authorization: Bearer $ADMIN_ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"role_name":"admin"}'
+```
+
+**Ответ `200`** — `roles` отражает актуальное состояние из БД:
+```json
+{
+  "user_id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+  "roles": ["admin", "author", "user"],
+  "changed": true
+}
+```
+
+Если роль уже была у пользователя — операция идемпотентна, `changed: false`:
+```json
+{
+  "user_id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+  "roles": ["admin", "author", "user"],
+  "changed": false
+}
+```
+
+**Ошибки:** `400` (невалидный UUID, пустой/неизвестный `role_name`), `401`, `403`, `404`.
+
+---
+
+### 4. Снять роль `admin`
+
+Этот эндпоинт снимает **только** роль `admin`. Роли `user` и `author` через него снять нельзя.
+
+```
+DELETE /auth/admin/users/{user_id}/roles/admin
+Authorization: Bearer <ADMIN_ACCESS_TOKEN>
+```
+
+```bash
+curl -X DELETE http://31.130.132.89/auth/admin/users/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/roles/admin \
+  -H "Authorization: Bearer $ADMIN_ACCESS_TOKEN"
+```
+
+**Ответ `200`:**
+```json
+{
+  "user_id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+  "roles": ["author", "user"],
+  "changed": true
+}
+```
+
+Если у пользователя не было роли `admin` — операция идемпотентна, `changed: false`:
+```json
+{
+  "user_id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+  "roles": ["author", "user"],
+  "changed": false
+}
+```
+
+**Защита последнего администратора:** если целевой пользователь — единственный
+администратор в системе, запрос отклоняется с `409 Conflict`
+(`{"error":"cannot remove the last admin"}`), роль не снимается.
+
+**Ошибки:** `400` (невалидный UUID), `401`, `403`, `404`, `409`.
 
 ---
 

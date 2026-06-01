@@ -11,4 +11,6 @@ var (
 	ErrEmailNotVerified   = errors.New("email not verified")
 	ErrTokenRevoked       = errors.New("token revoked")
 	ErrForbidden          = errors.New("forbidden")
+	ErrInvalidRole        = errors.New("invalid role")
+	ErrLastAdmin          = errors.New("cannot remove the last admin")
 )

@@ -37,4 +37,9 @@ type UserRepository interface {
 	GetUserByID(ctx context.Context, id uuid.UUID) (domain.User, error)
 	GetUserRoles(ctx context.Context, userID uuid.UUID) ([]string, error)
 	AssignRole(ctx context.Context, userID uuid.UUID, roleName string) error
+
+	ListUsers(ctx context.Context, filter domain.AdminUserFilter) ([]domain.UserWithRoles, int64, error)
+	GetUserWithRolesByID(ctx context.Context, userID uuid.UUID) (domain.UserWithRoles, error)
+	RemoveRole(ctx context.Context, userID uuid.UUID, roleName string) (bool, error)
+	CountUsersByRole(ctx context.Context, roleName string) (int64, error)
 }

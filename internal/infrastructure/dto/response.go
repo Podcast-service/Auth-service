@@ -43,3 +43,26 @@ type EmailNotVerifiedResponse struct {
 	Error   string `json:"error"`
 	Message string `json:"message"`
 }
+
+type AdminUserResponse struct {
+	ID            uuid.UUID `json:"id"`
+	Email         string    `json:"email"`
+	EmailVerified bool      `json:"email_verified"`
+	Roles         []string  `json:"roles"`
+	CreatedAt     time.Time `json:"created_at"`
+	UpdatedAt     time.Time `json:"updated_at"`
+}
+
+type AdminPageResponse[T any] struct {
+	Items         []T   `json:"items"`
+	Page          int   `json:"page"`
+	Size          int   `json:"size"`
+	TotalElements int64 `json:"total_elements"`
+	TotalPages    int   `json:"total_pages"`
+}
+
+type AdminRoleMutationResponse struct {
+	UserID  uuid.UUID `json:"user_id"`
+	Roles   []string  `json:"roles"`
+	Changed bool      `json:"changed"`
+}
