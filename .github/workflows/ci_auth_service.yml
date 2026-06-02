@@ -19,7 +19,7 @@ jobs:
 
       - name: Build check
         run: |
-          docker build --no-cache -t ghcr.io/podcast-service/auth_service:pr-${{ github.event.pull_request.number }} .
+          docker build -t ghcr.io/podcast-service/auth_service:pr-${{ github.event.pull_request.number }} .
           docker image rm ghcr.io/podcast-service/auth_service:pr-${{ github.event.pull_request.number }}
 
       - name: Run tests with coverage
@@ -35,11 +35,6 @@ jobs:
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
-        with:
-          args: >
-            -Dsonar.pullrequest.key=${{ github.event.pull_request.number }}
-            -Dsonar.pullrequest.branch=${{ github.head_ref }}
-            -Dsonar.pullrequest.base=${{ github.base_ref }}
 
   deploy:
     if: github.event.pull_request.merged == true
