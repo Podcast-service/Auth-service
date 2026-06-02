@@ -18,7 +18,7 @@ docker compose up --build
 
 ```bash
 curl http://31.130.132.89/auth/me/roles
-# ожидаем: 401 Unauthorized (сервис работает, токен не передан)
+# ожидаем: 401 Unauthorized (сервис работает, токен не передан) 
 ```
 
 ---
