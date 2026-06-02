@@ -31,7 +31,7 @@ jobs:
           go test ./... -coverprofile=coverage.out
 
       - name: SonarQube Scan
-        uses: sonarsource/sonarqube-scan-action@v5
+        uses: sonarsource/sonarqube-scan-action@v6
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
@@ -52,20 +52,6 @@ jobs:
       - name: Set SHA tag
         id: vars
         run: echo "SHA=$(echo ${{ github.sha }} | cut -c1-7)" >> $GITHUB_OUTPUT
-
-      - name: Run tests with coverage
-        run: |
-          docker run --rm \
-          -v ${{ github.workspace }}:/app \
-          -w /app \
-          golang:latest \
-          go test ./... -coverprofile=coverage.out
-
-      - name: SonarQube Scan
-        uses: sonarsource/sonarqube-scan-action@v5
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
 
       - name: Login to GHCR
         run: |
